@@ -1,7 +1,7 @@
 import { AlpacaClient, Order, PlaceOrder } from '@master-chief/alpaca';
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { credentials, config } from './config';
-import { TradeSignal } from './interfaces/trade-signal';
+import { TradeSignal } from './interfaces/trade_signal';
 import { AlpacaError } from './interfaces/alpaca_error';
 import { OrderType } from '@master-chief/alpaca/@types/entities';
 

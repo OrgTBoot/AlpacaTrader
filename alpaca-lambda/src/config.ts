@@ -1,7 +1,9 @@
 export const config = {
     orderSize: 3, // % from byuing power
     orderType: 'market', // limit, market
-    stopLoss: 3, // % from order price
+    stopLoss: true, // true, false
+    stopPrice: 5, // % below order price
+    notional: true, // ture, false - if false system will calculate order qty
     extendedHours: false, // true | false
 };
 

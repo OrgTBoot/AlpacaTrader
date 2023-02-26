@@ -74,14 +74,28 @@ export class AplacaService {
             //get latest price for the symbol
             const askPrice: number = (await this.client.getSnapshot({ symbol: tradeSignal.ticker })).latestTrade.p;
 
-            //calculate order quantity
-            const orderQty = Math.round(orderMoney / askPrice);
+            let placeOrder: PlaceOrder;
 
-            console.info(
-                `buyingPower: ${buyingPower}, orderMoney: ${orderMoney}, askPrice: ${askPrice}, orderQty: ${orderQty}`,
-            );
+            if (config.notional) {
+                //use orderMoney as notional
+                console.info(`buyingPower: ${buyingPower}, orderMoney: ${orderMoney}, askPrice: ${askPrice}`);
 
-            const placeOrder: PlaceOrder = this.buildBuyPlaceOrder(tradeSignal, orderQty);
+                placeOrder = this.buildBuyPlaceOrderByNotional(tradeSignal, orderMoney);
+            } else {
+                //calculate order quantity
+                const orderQty = Math.round(orderMoney / askPrice);
+
+                console.info(
+                    `buyingPower: ${buyingPower}, orderMoney: ${orderMoney}, askPrice: ${askPrice}, orderQty: ${orderQty}`,
+                );
+
+                placeOrder = this.buildBuyPlaceOrderByQty(tradeSignal, orderQty);
+            }
+
+            //att stop loss if config.stopLostt = true
+            placeOrder = this.attachStopLoss(placeOrder, askPrice);
+
+            console.info('Submit order: ', placeOrder);
 
             buyOrder = await this.client.placeOrder(placeOrder);
         } catch (err) {
@@ -119,7 +133,7 @@ export class AplacaService {
         return this.buildResponse(500, JSON.stringify(err));
     }
 
-    private buildBuyPlaceOrder(tradeSignal: TradeSignal, qty: number): PlaceOrder {
+    private buildBuyPlaceOrderByQty(tradeSignal: TradeSignal, qty: number): PlaceOrder {
         const placeOrder: PlaceOrder = {
             symbol: tradeSignal.ticker,
             qty: qty,
@@ -135,6 +149,33 @@ export class AplacaService {
 
         placeOrder.limit_price = Number(tradeSignal.price);
 
+        return placeOrder;
+    }
+
+    private buildBuyPlaceOrderByNotional(tradeSignal: TradeSignal, notional: number): PlaceOrder {
+        const placeOrder: PlaceOrder = {
+            symbol: tradeSignal.ticker,
+            notional: notional,
+            side: 'buy',
+            type: config.orderType as OrderType,
+            time_in_force: 'day',
+            extended_hours: config.extendedHours,
+        };
+
+        if (config.orderType == 'market') {
+            return placeOrder;
+        }
+
+        placeOrder.limit_price = Number(tradeSignal.price);
+
+        return placeOrder;
+    }
+
+    private attachStopLoss(placeOrder: PlaceOrder, askPrice: number): PlaceOrder {
+        if (config.stopLoss) {
+            const stopPrice = askPrice * (1 - config.stopPrice / 100);
+            placeOrder.stop_loss = { stop_price: stopPrice };
+        }
         return placeOrder;
     }
 }

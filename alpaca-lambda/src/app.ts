@@ -1,5 +1,5 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { AplacaService } from './aplaca_service';
+import { AlpacaService } from './alpaca_service';
 /**
  *
  * Event doc: https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-lambda-proxy-integrations.html#api-gateway-simple-proxy-for-lambda-input-format
@@ -11,7 +11,7 @@ import { AplacaService } from './aplaca_service';
  */
 
 export const lambdaHandler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
-    const aplacaService = new AplacaService();
+    const aplacaService = new AlpacaService();
 
     return aplacaService.processEvent(event);
 };

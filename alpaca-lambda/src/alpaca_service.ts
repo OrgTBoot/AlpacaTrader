@@ -69,14 +69,14 @@ export class AlpacaService {
             const buyingPower: number = (await this.client.getAccount()).buying_power;
 
             //substract order size percentage from buyingPower
-            const orderMoney: number = buyingPower - buyingPower * (1 - config.orderSize / 100);
+            const orderMoney: number = buyingPower - buyingPower * (1 - config.long.orderSize / 100);
 
             //get latest price for the symbol
             const askPrice: number = (await this.client.getSnapshot({ symbol: tradeSignal.ticker })).latestTrade.p;
 
             let placeOrder: PlaceOrder;
 
-            if (config.notional) {
+            if (config.long.notional) {
                 //use orderMoney as notional
                 console.info(`buyingPower: ${buyingPower}, orderMoney: ${orderMoney}, askPrice: ${askPrice}`);
 
@@ -92,7 +92,7 @@ export class AlpacaService {
                 placeOrder = this.buildBuyPlaceOrder(tradeSignal, orderQty);
             }
 
-            //att stop loss if config.stopLostt = true
+            //att stop loss if config.long.stopLostt = true
             placeOrder = this.attachStopLoss(placeOrder, askPrice);
 
             console.info('Submit order: ', placeOrder);
@@ -137,15 +137,15 @@ export class AlpacaService {
         const placeOrder: PlaceOrder = {
             symbol: tradeSignal.ticker,
             side: 'buy',
-            type: config.orderType as OrderType,
+            type: config.long.orderType as OrderType,
             time_in_force: 'day',
-            extended_hours: config.extendedHours,
+            extended_hours: config.long.extendedHours,
         };
 
-        if (config.notional) placeOrder.notional = qty;
+        if (config.long.notional) placeOrder.notional = qty;
         else placeOrder.qty = qty;
 
-        if (config.orderType == 'market') return placeOrder;
+        if (config.long.orderType == 'market') return placeOrder;
 
         placeOrder.limit_price = Number(tradeSignal.price);
 
@@ -153,10 +153,17 @@ export class AlpacaService {
     }
 
     private attachStopLoss(placeOrder: PlaceOrder, askPrice: number): PlaceOrder {
-        if (config.stopLoss) {
-            const stopPrice = askPrice * (1 - config.stopPrice / 100);
-            placeOrder.stop_loss = { stop_price: stopPrice };
+        if (config.long.stopLoss) {
+            const stopPrice = askPrice * (1 - config.long.stopPrice / 100);
+            const limitPrice = askPrice * (1 + config.long.takeProfit / 100);
+            placeOrder.stop_loss = { stop_price: this.round(stopPrice) };
+            placeOrder.take_profit = { limit_price: this.round(limitPrice) };
+            placeOrder.order_class = 'bracket';
         }
         return placeOrder;
+    }
+
+    private round(num: number): number {
+        return Math.round((num + Number.EPSILON) * 100) / 100;
     }
 }

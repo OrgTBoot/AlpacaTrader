@@ -14,7 +14,8 @@ export const config = {
 export const credentials = {
     paper: {
         key: 'YOUR_KEY',
-        secret: 'YOUR_SECRET'
+        secret: 'YOUR_SECRET',
+        paper: true
     },
     live: {
         key: 'YOUR_KEY',

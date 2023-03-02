@@ -6,16 +6,29 @@ import { AlpacaError } from './interfaces/alpaca_error';
 import { OrderType } from '@master-chief/alpaca/@types/entities';
 
 export class AlpacaService {
-    private client: AlpacaClient;
+    private paperClient: AlpacaClient;
+    private liveClient: AlpacaClient;
 
     constructor() {
-        this.client = new AlpacaClient({
-            credentials: credentials,
+        this.paperClient = new AlpacaClient({
+            credentials: credentials.paper,
+            rate_limit: true,
+        });
+        this.liveClient = new AlpacaClient({
+            credentials: credentials.live,
             rate_limit: true,
         });
     }
 
-    async processEvent(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    async processPaperEvent(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+        return this.processEvent(this.paperClient, event)
+    }
+
+    async processLiveEvent(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+        return this.processEvent(this.liveClient, event)
+    }
+
+    async processEvent(client: AlpacaClient, event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
         console.info('Event: ', event.body);
 
         try {
@@ -23,9 +36,9 @@ export class AlpacaService {
 
             console.info('TradeSignal: ', tradeSignal);
 
-            if (tradeSignal.action === 'buy') return this.processBuySignal(tradeSignal);
+            if (tradeSignal.action === 'buy') return this.processBuySignal(client, tradeSignal);
 
-            if (tradeSignal.action === 'sell') return this.processSellSignal(tradeSignal);
+            if (tradeSignal.action === 'sell') return this.processSellSignal(client, tradeSignal);
         } catch (err) {
             console.error('Failed to process event: ', err);
         }
@@ -33,25 +46,25 @@ export class AlpacaService {
         return this.buildSuccessResponse(JSON.stringify({ message: 'Unknown route' }));
     }
 
-    private async processSellSignal(tradeSignal: TradeSignal): Promise<APIGatewayProxyResult> {
+    private async processSellSignal(client: AlpacaClient, tradeSignal: TradeSignal): Promise<APIGatewayProxyResult> {
         let closeOrder: Order;
         let openOrders: Order[];
 
         try {
             //if open orders are available cancel them
-            openOrders = await this.client.getOrders({ status: 'open', symbols: [tradeSignal.ticker] });
+            openOrders = await client.getOrders({ status: 'open', symbols: [tradeSignal.ticker] });
 
             openOrders.forEach(async (order) => {
                 console.warn('Cancel order: ', order);
                 try {
-                    await this.client.cancelOrder({ order_id: order.id });
+                    await client.cancelOrder({ order_id: order.id });
                 } catch (err) {
                     console.error(`Failed to cancel order ${order.id}: `, err);
                 }
             });
 
             //close entire position
-            closeOrder = await this.client.closePosition({ symbol: tradeSignal.ticker });
+            closeOrder = await client.closePosition({ symbol: tradeSignal.ticker });
         } catch (err) {
             return this.errorResonse(err, tradeSignal);
         }
@@ -61,18 +74,18 @@ export class AlpacaService {
         return this.buildSuccessResponse(JSON.stringify(closeOrder));
     }
 
-    private async processBuySignal(tradeSignal: TradeSignal): Promise<APIGatewayProxyResult> {
+    private async processBuySignal(client: AlpacaClient, tradeSignal: TradeSignal): Promise<APIGatewayProxyResult> {
         let buyOrder: Order;
 
         try {
             //get account buying power
-            const buyingPower: number = (await this.client.getAccount()).buying_power;
+            const buyingPower: number = (await client.getAccount()).buying_power;
 
             //substract order size percentage from buyingPower
             const orderMoney: number = buyingPower - buyingPower * (1 - config.long.orderSize / 100);
 
             //get latest price for the symbol
-            const askPrice: number = (await this.client.getSnapshot({ symbol: tradeSignal.ticker })).latestTrade.p;
+            const askPrice: number = (await client.getSnapshot({ symbol: tradeSignal.ticker })).latestTrade.p;
 
             let placeOrder: PlaceOrder;
 
@@ -97,7 +110,7 @@ export class AlpacaService {
 
             console.info('Submit order: ', placeOrder);
 
-            buyOrder = await this.client.placeOrder(placeOrder);
+            buyOrder = await client.placeOrder(placeOrder);
         } catch (err) {
             return this.errorResonse(err, tradeSignal);
         }

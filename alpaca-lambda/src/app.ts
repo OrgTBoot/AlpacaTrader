@@ -10,8 +10,15 @@ import { AlpacaService } from './alpaca_service';
  *
  */
 
-export const lambdaHandler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+export const lambdaPaperHandler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
     const aplacaService = new AlpacaService();
 
-    return aplacaService.processEvent(event);
+    return aplacaService.processPaperEvent(event);
+};
+
+
+export const lambdaLiveHandler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+    const aplacaService = new AlpacaService();
+
+    return aplacaService.processLiveEvent(event);
 };

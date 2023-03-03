@@ -21,8 +21,8 @@ export const cryptoConfig = {
 
 export const credentials = {
     paper: {
-        key: 'PKDJDP5N8PH0BKU02307',
-        secret: '8Gh3cHbHfwlQ5HKRr1ZXBsYjbfXTYfya5PKOYtSZ',
+        key: 'YOUR_KEY',
+        secret: 'YOUR_SECRET',
         paper: true,
     },
     live: {

@@ -27,7 +27,7 @@ Resources:
         WebHook:
           Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
           Properties:
-            Path: /paper/hook
+            Path: /paper/stock
             Method: post
     Metadata: # Manage esbuild properties
       BuildMethod: esbuild
@@ -37,13 +37,6 @@ Resources:
         # Sourcemap: true # Enabling source maps will create the required NODE_OPTIONS environment variables on your lambda function during sam build
         EntryPoints:
           - src/app.ts
-  # AlpacaFunctionPermission:
-  #   Type: AWS::Lambda::Permission
-  #   Properties:
-  #     Action: lambda:InvokeFunction
-  #     FunctionName: !Ref AlpacaFunction
-  #     Principal: events.amazonaws.com
-  #     SourceIp: "50.35.88.128/0"
   AlpacaLiveFunction:
     Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
     Properties:
@@ -56,7 +49,51 @@ Resources:
         WebHook:
           Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
           Properties:
-            Path: /live/hook
+            Path: /live/stock
+            Method: post
+    Metadata: # Manage esbuild properties
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: es2020
+        # Sourcemap: true # Enabling source maps will create the required NODE_OPTIONS environment variables on your lambda function during sam build
+        EntryPoints:
+          - src/app.ts
+  AlpacaPaperCryptoFunction:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      CodeUri: alpaca-lambda/
+      Handler: src/app.lambdaPaperCryptoHandler
+      Runtime: nodejs14.x
+      Architectures:
+        - x86_64
+      Events:
+        WebHook:
+          Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+          Properties:
+            Path: /paper/crypto
+            Method: post
+    Metadata: # Manage esbuild properties
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: es2020
+        # Sourcemap: true # Enabling source maps will create the required NODE_OPTIONS environment variables on your lambda function during sam build
+        EntryPoints:
+          - src/app.ts
+  AlpacaLiveCryptoFunction:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      CodeUri: alpaca-lambda/
+      Handler: src/app.lambdaLiveCryptoHandler
+      Runtime: nodejs14.x
+      Architectures:
+        - x86_64
+      Events:
+        WebHook:
+          Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+          Properties:
+            Path: /live/crypto
             Method: post
     Metadata: # Manage esbuild properties
       BuildMethod: esbuild
@@ -92,19 +129,13 @@ Outputs:
   # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
   WebHookPaperApi:
     Description: API Gateway endpoint URL for Prod PAPER function
-    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/paper/hook/"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/paper/stock/"
   WebHookLiveApi:
     Description: API Gateway endpoint URL for Prod LIVE function
-    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/live/hook/"
-  AlpacaPaperFunction:
-    Description: Alpaca Paper Lambda Function ARN
-    Value: !GetAtt AlpacaPaperFunction.Arn
-  AlpacaLiveFunction:
-    Description: Alpaca Live Lambda Function ARN
-    Value: !GetAtt AlpacaLiveFunction.Arn
-  AlpacaPaperFunctionIamRole:
-    Description: Implicit IAM Role created for AlpacaPaperFunction function
-    Value: !GetAtt AlpacaPaperFunctionRole.Arn
-  AlpacaLiveFunctionIamRole:
-    Description: Implicit IAM Role created for AlpacaLiveFunction function
-    Value: !GetAtt AlpacaLiveFunctionRole.Arn
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/live/stock/"
+  WebHookCryptoPaperApi:
+    Description: API Gateway endpoint URL for Prod PAPER Crypto function
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/paper/crypto/"
+  WebHookCryptoLiveApi:
+    Description: API Gateway endpoint URL for Prod LIVE Crypto function
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/live/crypto/"

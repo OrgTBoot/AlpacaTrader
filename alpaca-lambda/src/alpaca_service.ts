@@ -1,31 +1,37 @@
 import { AlpacaClient, Order, PlaceOrder } from '@master-chief/alpaca';
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { credentials, config } from './config';
+import { credentials } from './config';
 import { TradeSignal } from './interfaces/trade_signal';
 import { AlpacaError } from './interfaces/alpaca_error';
 import { OrderType } from '@master-chief/alpaca/@types/entities';
+import { TradeConfig, TradeParams } from './interfaces/trade_config';
+import { AlpacaClientExtention } from './alpaca_client_extention';
 
-export class AlpacaService {
-    private paperClient: AlpacaClient;
-    private liveClient: AlpacaClient;
+export abstract class AlpacaService {
+    private paperClient: AlpacaClientExtention;
+    private liveClient: AlpacaClientExtention;
+    private longTradeParams: TradeParams;
+    private shortTradeParams: TradeParams;
 
-    constructor() {
-        this.paperClient = new AlpacaClient({
+    constructor(tradeConfig: TradeConfig) {
+        this.paperClient = new AlpacaClientExtention({
             credentials: credentials.paper,
             rate_limit: true,
         });
-        this.liveClient = new AlpacaClient({
+        this.liveClient = new AlpacaClientExtention({
             credentials: credentials.live,
             rate_limit: true,
         });
+        this.longTradeParams = tradeConfig.long;
+        this.shortTradeParams = tradeConfig.short ?? ({} as TradeParams);
     }
 
     async processPaperEvent(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-        return this.processEvent(this.paperClient, event)
+        return this.processEvent(this.paperClient, event);
     }
 
     async processLiveEvent(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
-        return this.processEvent(this.liveClient, event)
+        return this.processEvent(this.liveClient, event);
     }
 
     async processEvent(client: AlpacaClient, event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
@@ -45,6 +51,10 @@ export class AlpacaService {
 
         return this.buildSuccessResponse(JSON.stringify({ message: 'Unknown route' }));
     }
+
+    protected abstract getCurrentPrice(client: AlpacaClient, tradeSignal: TradeSignal): Promise<number>;
+
+    protected abstract computeOrderQty(orderMoney: number, askPrice: number): number;
 
     private async processSellSignal(client: AlpacaClient, tradeSignal: TradeSignal): Promise<APIGatewayProxyResult> {
         let closeOrder: Order;
@@ -82,21 +92,21 @@ export class AlpacaService {
             const buyingPower: number = (await client.getAccount()).buying_power;
 
             //substract order size percentage from buyingPower
-            const orderMoney: number = buyingPower - buyingPower * (1 - config.long.orderSize / 100);
+            const orderMoney: number = buyingPower - buyingPower * (1 - this.longTradeParams.orderSize / 100);
 
             //get latest price for the symbol
-            const askPrice: number = (await client.getSnapshot({ symbol: tradeSignal.ticker })).latestTrade.p;
+            const askPrice: number = await this.getCurrentPrice(client, tradeSignal);
 
             let placeOrder: PlaceOrder;
 
-            if (config.long.notional) {
+            if (this.longTradeParams.notional) {
                 //use orderMoney as notional
                 console.info(`buyingPower: ${buyingPower}, orderMoney: ${orderMoney}, askPrice: ${askPrice}`);
 
                 placeOrder = this.buildBuyPlaceOrder(tradeSignal, orderMoney);
             } else {
                 //calculate order quantity
-                const orderQty = Math.round(orderMoney / askPrice);
+                const orderQty = this.computeOrderQty(orderMoney, askPrice);
 
                 console.info(
                     `buyingPower: ${buyingPower}, orderMoney: ${orderMoney}, askPrice: ${askPrice}, orderQty: ${orderQty}`,
@@ -105,7 +115,7 @@ export class AlpacaService {
                 placeOrder = this.buildBuyPlaceOrder(tradeSignal, orderQty);
             }
 
-            //att stop loss if config.long.stopLostt = true
+            //att stop loss if tradeConfig.stopLostt = true
             placeOrder = this.attachStopLoss(placeOrder, askPrice);
 
             console.info('Submit order: ', placeOrder);
@@ -134,14 +144,17 @@ export class AlpacaService {
     }
 
     private isAlpacaError(err: unknown): err is AlpacaError {
-        return typeof err === 'object' && err !== null && 'code' in err && 'message' in err;
+        return typeof err === 'object' && err !== null && 'message' in err;
     }
 
     private errorResonse(err: unknown, tradeSignal: TradeSignal) {
         console.error(`Failed to process trade signal for ${tradeSignal.ticker}: `, err);
 
-        if (this.isAlpacaError(err) && err.message.startsWith('position not found'))
+        if (this.isAlpacaError(err) && (err.message.includes('not found') || err.message.includes('not find')))
             return this.buildResponse(404, JSON.stringify(err));
+
+        if (this.isAlpacaError(err) && err.message.includes('forbidden'))
+            return this.buildResponse(403, JSON.stringify(err));
 
         return this.buildResponse(500, JSON.stringify(err));
     }
@@ -150,15 +163,15 @@ export class AlpacaService {
         const placeOrder: PlaceOrder = {
             symbol: tradeSignal.ticker,
             side: 'buy',
-            type: config.long.orderType as OrderType,
-            time_in_force: 'day',
-            extended_hours: config.long.extendedHours,
+            type: this.longTradeParams.orderType as OrderType,
+            time_in_force: 'gtc',
+            extended_hours: this.longTradeParams.extendedHours ?? false,
         };
 
-        if (config.long.notional) placeOrder.notional = qty;
+        if (this.longTradeParams.notional) placeOrder.notional = qty;
         else placeOrder.qty = qty;
 
-        if (config.long.orderType == 'market') return placeOrder;
+        if (this.longTradeParams.orderType == 'market') return placeOrder;
 
         placeOrder.limit_price = Number(tradeSignal.price);
 
@@ -166,9 +179,9 @@ export class AlpacaService {
     }
 
     private attachStopLoss(placeOrder: PlaceOrder, askPrice: number): PlaceOrder {
-        if (config.long.stopLoss) {
-            const stopPrice = askPrice * (1 - config.long.stopPrice / 100);
-            const limitPrice = askPrice * (1 + config.long.takeProfit / 100);
+        if (this.longTradeParams.stopLoss && this.longTradeParams.stopPrice && this.longTradeParams.takeProfit) {
+            const stopPrice = askPrice * (1 - this.longTradeParams.stopPrice / 100);
+            const limitPrice = askPrice * (1 + this.longTradeParams.takeProfit / 100);
             placeOrder.stop_loss = { stop_price: this.round(stopPrice) };
             placeOrder.take_profit = { limit_price: this.round(limitPrice) };
             placeOrder.order_class = 'bracket';

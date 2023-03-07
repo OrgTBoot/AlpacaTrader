@@ -115,7 +115,7 @@ export abstract class AlpacaService {
                 placeOrder = this.buildBuyPlaceOrder(tradeSignal, orderQty);
             }
 
-            //att stop loss if tradeConfig.stopLostt = true
+            //att stop loss if tradeConfig.stopLoss = true
             placeOrder = this.attachStopLoss(placeOrder, askPrice);
 
             console.info('Submit order: ', placeOrder);
@@ -160,22 +160,33 @@ export abstract class AlpacaService {
     }
 
     private buildBuyPlaceOrder(tradeSignal: TradeSignal, qty: number): PlaceOrder {
-        const placeOrder: PlaceOrder = {
+        return {
             symbol: tradeSignal.ticker,
             side: 'buy',
             type: this.longTradeParams.orderType as OrderType,
-            time_in_force: 'gtc',
+            time_in_force: this.longTradeParams.timeInForce,
             extended_hours: this.longTradeParams.extendedHours ?? false,
+            notional: this.getNational(qty),
+            qty: this.getQty(qty),
+            limit_price: this.getLimitPrice(tradeSignal),
+            trail_percent: this.getTrailPercent()
         };
+    }
 
-        if (this.longTradeParams.notional) placeOrder.notional = qty;
-        else placeOrder.qty = qty;
+    private getNational(qty: number): number | undefined {
+        return this.longTradeParams.notional ? qty : undefined
+    }
 
-        if (this.longTradeParams.orderType == 'market') return placeOrder;
+    private getQty(qty: number): number | undefined {
+        return !this.longTradeParams.notional ? qty : undefined
+    }
 
-        placeOrder.limit_price = Number(tradeSignal.price);
+    private getLimitPrice(tradeSignal: TradeSignal): number | undefined {
+        return this.longTradeParams.orderType == 'limit' ? Number(tradeSignal.price) : undefined
+    }
 
-        return placeOrder;
+    private getTrailPercent(): number | undefined {
+        return this.longTradeParams.orderType == 'trailing_stop' ? this.longTradeParams.trailPercent : undefined
     }
 
     private attachStopLoss(placeOrder: PlaceOrder, askPrice: number): PlaceOrder {

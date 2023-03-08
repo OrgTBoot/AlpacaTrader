@@ -160,33 +160,44 @@ export abstract class AlpacaService {
     }
 
     private buildBuyPlaceOrder(tradeSignal: TradeSignal, qty: number): PlaceOrder {
-        return {
+        let order: PlaceOrder = {
             symbol: tradeSignal.ticker,
             side: 'buy',
             type: this.longTradeParams.orderType as OrderType,
             time_in_force: this.longTradeParams.timeInForce,
             extended_hours: this.longTradeParams.extendedHours ?? false,
-            notional: this.getNational(qty),
-            qty: this.getQty(qty),
-            limit_price: this.getLimitPrice(tradeSignal),
-            trail_percent: this.getTrailPercent()
         };
+
+        this.calculateNational(order, qty)
+        this.calculateQty(order, qty)
+        this.calculateLimitPrice(order, tradeSignal)
+        this.calculateTrailPercent(order)
+
+        return order;
     }
 
-    private getNational(qty: number): number | undefined {
-        return this.longTradeParams.notional ? qty : undefined
+    private calculateNational(order: PlaceOrder, qty: number): void {
+        if (this.longTradeParams.notional) {
+            order.notional = qty;
+        }
     }
 
-    private getQty(qty: number): number | undefined {
-        return !this.longTradeParams.notional ? qty : undefined
+    private calculateQty(order: PlaceOrder, qty: number): void {
+        if (!this.longTradeParams.notional) {
+            order.qty = qty
+        }
     }
 
-    private getLimitPrice(tradeSignal: TradeSignal): number | undefined {
-        return this.longTradeParams.orderType == 'limit' ? Number(tradeSignal.price) : undefined
+    private calculateLimitPrice(order: PlaceOrder, tradeSignal: TradeSignal): void {
+        if (this.longTradeParams.orderType == 'limit') {
+            order.limit_price = Number(tradeSignal.price)
+        }
     }
 
-    private getTrailPercent(): number | undefined {
-        return this.longTradeParams.orderType == 'trailing_stop' ? this.longTradeParams.trailPercent : undefined
+    private calculateTrailPercent(order: PlaceOrder): void {
+        if (this.longTradeParams.orderType == 'trailing_stop') {
+            order.trail_percent = this.longTradeParams.trailPercent;
+        }
     }
 
     private attachStopLoss(placeOrder: PlaceOrder, askPrice: number): PlaceOrder {

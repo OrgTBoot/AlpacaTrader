@@ -125,15 +125,15 @@ export abstract class AlpacaService extends AlpacaOrderService {
             }
             console.info(
                 'EXECUTION COMPLETED :',
-                'SIGNAL ',
+                '\nSIGNAL ',
                 tradeSignal,
-                'BUY ORDER ==>',
+                '\nBUY ORDER ==>',
                 placeOrder,
-                'BUY ORDER <==',
+                '\nBUY ORDER <==',
                 buyOrder,
-                'STOP ORDER ==> ',
+                '\nSTOP ORDER ==> ',
                 placeTrailingOrder,
-                'STOP ORDER <==',
+                '\nSTOP ORDER <==',
                 trailingSellOrder,
             );
         } catch (err) {

@@ -16,8 +16,4 @@ export class AlpacaStockService extends AlpacaService {
                 .catch((err) => reject(err));
         });
     }
-
-    protected computeOrderQty(orderMoney: number, askPrice: number): number {
-        return Math.round(orderMoney / askPrice);
-    }
 }

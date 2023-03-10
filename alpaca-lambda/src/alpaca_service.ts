@@ -6,14 +6,16 @@ import { AlpacaError } from './interfaces/alpaca_error';
 import { OrderType } from '@master-chief/alpaca/@types/entities';
 import { TradeConfig, TradeParams } from './interfaces/trade_config';
 import { AlpacaClientExtention } from './alpaca_client_extention';
+import { AlpacaOrderService } from './alpaca_order_service';
 
-export abstract class AlpacaService {
+export abstract class AlpacaService extends AlpacaOrderService {
     private paperClient: AlpacaClientExtention;
     private liveClient: AlpacaClientExtention;
     private longTradeParams: TradeParams;
     private shortTradeParams: TradeParams;
 
     constructor(tradeConfig: TradeConfig) {
+        super();
         this.paperClient = new AlpacaClientExtention({
             credentials: credentials.paper,
             rate_limit: true,
@@ -52,9 +54,7 @@ export abstract class AlpacaService {
         return this.buildSuccessResponse(JSON.stringify({ message: 'Unknown route' }));
     }
 
-    protected abstract getCurrentPrice(client: AlpacaClient, tradeSignal: TradeSignal): Promise<number>;
-
-    protected abstract computeOrderQty(orderMoney: number, askPrice: number): number;
+    // protected abstract getCurrentPrice(client: AlpacaClient, tradeSignal: TradeSignal): Promise<number>;
 
     private async processSellSignal(client: AlpacaClient, tradeSignal: TradeSignal): Promise<APIGatewayProxyResult> {
         let closeOrder: Order;
@@ -85,50 +85,116 @@ export abstract class AlpacaService {
     }
 
     private async processBuySignal(client: AlpacaClient, tradeSignal: TradeSignal): Promise<APIGatewayProxyResult> {
+        let placeOrder: PlaceOrder;
         let buyOrder: Order;
+        let trailingSellOrder: Order | undefined = undefined;
+        let placeTrailingOrder: PlaceOrder | undefined = undefined;
 
         try {
-            //get account buying power
-            const buyingPower: number = (await client.getAccount()).buying_power;
+            const orderType = this.longTradeParams.orderType as OrderType;
+            const isOrderCanceled = (order: Order) => order.status == 'canceled' || order.status == 'pending_cancel';
 
-            //substract order size percentage from buyingPower
-            const orderMoney: number = buyingPower - buyingPower * (1 - this.longTradeParams.orderSize / 100);
-
-            //get latest price for the symbol
-            const askPrice: number = await this.getCurrentPrice(client, tradeSignal);
-
-            let placeOrder: PlaceOrder;
-
-            if (this.longTradeParams.notional) {
-                //use orderMoney as notional
-                console.info(`buyingPower: ${buyingPower}, orderMoney: ${orderMoney}, askPrice: ${askPrice}`);
-
-                placeOrder = this.buildBuyPlaceOrder(tradeSignal, orderMoney);
+            if (orderType == 'market') {
+                placeOrder = await super.getLongBuyMarketOrder(client, tradeSignal, this.longTradeParams);
+            } else if (orderType == 'limit') {
+                placeOrder = await super.getLongBuyLimitOrder(client, tradeSignal, this.longTradeParams);
             } else {
-                //calculate order quantity
-                const orderQty = this.computeOrderQty(orderMoney, askPrice);
-
-                console.info(
-                    `buyingPower: ${buyingPower}, orderMoney: ${orderMoney}, askPrice: ${askPrice}, orderQty: ${orderQty}`,
-                );
-
-                placeOrder = this.buildBuyPlaceOrder(tradeSignal, orderQty);
+                throw new Error(`Unsupported order type received: ${JSON.stringify(tradeSignal)}`);
             }
 
-            //att stop loss if tradeConfig.stopLoss = true
-            placeOrder = this.attachStopLoss(placeOrder, askPrice);
-
-            console.info('Submit order: ', placeOrder);
-
+            console.info('Submitting Long Buy order: ', placeOrder);
             buyOrder = await client.placeOrder(placeOrder);
+            buyOrder = await this.awaitOrderFillOrCancel(
+                client,
+                buyOrder.id,
+                this.longTradeParams.cancelPendingOrderPeriod,
+            );
+
+            if (!isOrderCanceled(buyOrder)) {
+                //trailing stop works on limit orders only if there are no limit brackets.
+                if (this.longTradeParams?.trailingStop?.enabled && !this.longTradeParams.limitBracket.enabled) {
+                    placeTrailingOrder = await super.getLongSellTrailingStopOrder(
+                        client,
+                        buyOrder,
+                        this.longTradeParams,
+                    );
+                    console.info(`Submitted Long Sell TRAILING order.`, placeTrailingOrder);
+                    trailingSellOrder = await client.placeOrder(placeTrailingOrder);
+                    console.info(`Placed Long Sell TRAILING order.`, trailingSellOrder);
+                }
+            }
+            console.info(
+                'EXECUTION COMPLETED :',
+                'SIGNAL ',
+                tradeSignal,
+                'BUY ORDER ==>',
+                placeOrder,
+                'BUY ORDER <==',
+                buyOrder,
+                'STOP ORDER ==> ',
+                placeTrailingOrder,
+                'STOP ORDER <==',
+                trailingSellOrder,
+            );
         } catch (err) {
             return this.errorResonse(err, tradeSignal);
         }
 
-        console.info('Buy order placed: ', buyOrder);
-
-        return this.buildSuccessResponse(JSON.stringify(buyOrder));
+        return this.buildSuccessResponse(JSON.stringify([buyOrder]));
     }
+
+    private async awaitOrderFillOrCancel(
+        client: AlpacaClient,
+        orderId: string,
+        maxWaitSeconds: number,
+    ): Promise<Order> {
+        const maxWaitMillis = this.longTradeParams.cancelPendingOrderPeriod * 1000;
+        const intervalMillis = 1000; // check status every 1 second
+        let elapsedMillis = 0;
+        const getOrder = async () => client.getOrder({ order_id: orderId });
+
+        while (elapsedMillis < maxWaitMillis) {
+            const order = await getOrder();
+            if (order.status == 'filled') {
+                console.info(`Order filled:`, order);
+                return order;
+            }
+
+            await new Promise((resolve) => setTimeout(resolve, intervalMillis));
+            elapsedMillis += intervalMillis;
+            console.debug(`Waiting for the '${order.status}' order to be filled`);
+        }
+
+        // max wait time reached without the order being filled
+        console.info(`Order ${orderId} was not filled within ${maxWaitSeconds} seconds. Canceling...`);
+        await client.cancelOrder({ order_id: orderId });
+        return await getOrder();
+    }
+
+    private async cancelOpenOrders(client: AlpacaClient, symbol: string) {
+        const openOrders = await client.getOrders({ status: 'open', symbols: [symbol] });
+
+        openOrders.forEach(async (order) => {
+            console.warn('Cancel order: ', order);
+            try {
+                await client.cancelOrder({ order_id: order.id });
+            } catch (err) {
+                console.error(`Failed to cancel order ${order.id}: `, err);
+            }
+        });
+    }
+
+    // private async submitOrder(client: AlpacaClient, placeOrder: PlaceOrder) {
+    //     console.info('Submitted order', placeOrder);
+    //     let order = await client.placeOrder(placeOrder)
+    //
+    //     setTimeout(() => {
+    //         wh (order.status != 'filled') {
+    //             let order = await client.getOrder({order_id: order.id})
+    //         }
+    //     }, this.longTradeParams.cancelPendingOrderPeriod * 1000)
+    //
+    // }
 
     private async buildSuccessResponse(data: string): Promise<APIGatewayProxyResult> {
         return this.buildResponse(200, data);
@@ -157,61 +223,5 @@ export abstract class AlpacaService {
             return this.buildResponse(403, JSON.stringify(err));
 
         return this.buildResponse(500, JSON.stringify(err));
-    }
-
-    private buildBuyPlaceOrder(tradeSignal: TradeSignal, qty: number): PlaceOrder {
-        let order: PlaceOrder = {
-            symbol: tradeSignal.ticker,
-            side: 'buy',
-            type: this.longTradeParams.orderType as OrderType,
-            time_in_force: this.longTradeParams.timeInForce,
-            extended_hours: this.longTradeParams.extendedHours ?? false,
-        };
-
-        this.calculateNational(order, qty)
-        this.calculateQty(order, qty)
-        this.calculateLimitPrice(order, tradeSignal)
-        this.calculateTrailPercent(order)
-
-        return order;
-    }
-
-    private calculateNational(order: PlaceOrder, qty: number): void {
-        if (this.longTradeParams.notional) {
-            order.notional = qty;
-        }
-    }
-
-    private calculateQty(order: PlaceOrder, qty: number): void {
-        if (!this.longTradeParams.notional) {
-            order.qty = qty
-        }
-    }
-
-    private calculateLimitPrice(order: PlaceOrder, tradeSignal: TradeSignal): void {
-        if (this.longTradeParams.orderType == 'limit') {
-            order.limit_price = Number(tradeSignal.price)
-        }
-    }
-
-    private calculateTrailPercent(order: PlaceOrder): void {
-        if (this.longTradeParams.orderType == 'trailing_stop') {
-            order.trail_percent = this.longTradeParams.trailPercent;
-        }
-    }
-
-    private attachStopLoss(placeOrder: PlaceOrder, askPrice: number): PlaceOrder {
-        if (this.longTradeParams.stopLoss && this.longTradeParams.stopPrice && this.longTradeParams.takeProfit) {
-            const stopPrice = askPrice * (1 - this.longTradeParams.stopPrice / 100);
-            const limitPrice = askPrice * (1 + this.longTradeParams.takeProfit / 100);
-            placeOrder.stop_loss = { stop_price: this.round(stopPrice) };
-            placeOrder.take_profit = { limit_price: this.round(limitPrice) };
-            placeOrder.order_class = 'bracket';
-        }
-        return placeOrder;
-    }
-
-    private round(num: number): number {
-        return Math.round((num + Number.EPSILON) * 100) / 100;
     }
 }

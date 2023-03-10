@@ -2,12 +2,18 @@ export interface TradeParams {
     orderSize: number;
     orderType: string;
     timeInForce: 'day' | 'gtc';
-    stopLoss?: boolean;
-    stopPrice?: number;
-    takeProfit?: number;
-    trailPercent?: number;
     notional: boolean;
     extendedHours?: boolean;
+    cancelPendingOrderPeriod: number;
+    limitBracket: {
+        enabled: boolean;
+        stopPrice: number;
+        takeProfit: number;
+    };
+    trailingStop?: {
+        enabled: boolean;
+        trailPercent: number;
+    };
 }
 
 export interface TradeConfig {

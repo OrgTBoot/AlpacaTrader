@@ -16,8 +16,4 @@ export class AlpacaCryptoService extends AlpacaService {
                 .catch(() => resolve(0)); // return 0 for now, there are symbols for which 'no trade found' is thrown
         });
     }
-
-    protected computeOrderQty(orderMoney: number, askPrice: number): number {
-        return orderMoney / askPrice;
-    }
 }

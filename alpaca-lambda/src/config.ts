@@ -1,26 +1,39 @@
+import { TradeParams } from './interfaces/trade_config';
+
 export const config = {
     long: {
-        orderSize: 3,               // % from byuing power
-        orderType: 'trailing_stop', // limit, market, trailing_stop
-        timeInForce: 'day',         // day, gtc, ...
-        trailPercent: 5,            // % value away from the highest watermark
-        stopPrice: 3,               // % below order price
-        takeProfit: 6,              // % above order price
-        stopLoss: false,            // true, false
-        notional: false,            // ture, false - if false system will calculate order qty
-        extendedHours: false,       // true | false
-    },
-    short: {},
+        orderSize: 3, // % from byuing power
+        orderType: 'limit', // limit, market
+        extendedHours: false, // true | false
+        cancelPendingOrderPeriod: 5, // in seconds, fail as fast as possible. Do not change unless you have a good reason
+        trailingStop: {
+            enabled: true, // true, false
+            trailPercent: 5, // % value away from the highest watermark
+        },
+        limitBracket: {
+            enabled: false, // true, false - always set it to false if trailingStop.enabled=true
+            stopPrice: 3, // % below order price
+            takeProfit: 999, // % above order price
+        },
+    } as TradeParams,
+    short: {} as TradeParams,
 };
 
 export const cryptoConfig = {
     long: {
         orderSize: 3,
-        orderType: 'market',
-        notional: true,
-    },
+        orderType: 'limit',
+        cancelPendingOrderPeriod: 5, // in seconds, fail as fast as possible. Do not change unless you have a good reason
+        limit: {
+            enabled: true,
+            stopPrice: 3,
+        },
+    } as TradeParams,
 };
 
+//TODO: Check with Vlad if those should in to AWS Secrets. It costs :(
+//      $0.40 per secret per month
+//      $0.05 per 10,000 API calls
 export const credentials = {
     paper: {
         key: 'YOUR_KEY',

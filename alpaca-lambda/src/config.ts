@@ -5,7 +5,7 @@ export const config = {
         orderSize: 3, // % from byuing power
         orderType: 'limit', // limit, market
         extendedHours: false, // true | false
-        cancelPendingOrderPeriod: 120, // 120 seconds
+        cancelPendingOrderPeriod: 5, // in seconds, fail as fast as possible. Do not change unless you have a good reason
         trailingStop: {
             enabled: true, // true, false
             trailPercent: 2, // % value away from the highest watermark
@@ -23,7 +23,7 @@ export const cryptoConfig = {
     long: {
         orderSize: 3,
         orderType: 'limit',
-        cancelPendingOrderPeriod: 120, // 120 seconds
+        cancelPendingOrderPeriod: 5, // in seconds, fail as fast as possible. Do not change unless you have a good reason
         limitBracket: {
             enabled: true,
             stopPrice: 3,
@@ -32,7 +32,9 @@ export const cryptoConfig = {
     } as TradeParams,
 };
 
-//TODO: Check with Vlad if those can be added in to AWS Secrets
+//TODO: Check with Vlad if those should in to AWS Secrets. It costs :(
+//      $0.40 per secret per month
+//      $0.05 per 10,000 API calls
 export const credentials = {
     paper: {
         key: 'YOUR_KEY',

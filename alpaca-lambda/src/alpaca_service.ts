@@ -54,34 +54,19 @@ export abstract class AlpacaService extends AlpacaOrderService {
         return this.buildSuccessResponse(JSON.stringify({ message: 'Unknown route' }));
     }
 
-    // protected abstract getCurrentPrice(client: AlpacaClient, tradeSignal: TradeSignal): Promise<number>;
-
+    /**
+     * Closes open orders and positions
+     * */
     private async processSellSignal(client: AlpacaClient, tradeSignal: TradeSignal): Promise<APIGatewayProxyResult> {
-        let closeOrder: Order;
-        let openOrders: Order[];
-
         try {
-            //if open orders are available cancel them
-            openOrders = await client.getOrders({ status: 'open', symbols: [tradeSignal.ticker] });
+            await this.cancelOpenOrders(client, tradeSignal.ticker);
+            const closeOrder: Order = await client.closePosition({ symbol: tradeSignal.ticker });
+            console.info('Position closed: ', closeOrder);
 
-            openOrders.forEach(async (order) => {
-                console.warn('Cancel order: ', order);
-                try {
-                    await client.cancelOrder({ order_id: order.id });
-                } catch (err) {
-                    console.error(`Failed to cancel order ${order.id}: `, err);
-                }
-            });
-
-            //close entire position
-            closeOrder = await client.closePosition({ symbol: tradeSignal.ticker });
+            return this.buildSuccessResponse(JSON.stringify(closeOrder));
         } catch (err) {
-            return this.errorResonse(err, tradeSignal);
+            return this.errorResponse(err, tradeSignal);
         }
-
-        console.info('Position closed: ', closeOrder);
-
-        return this.buildSuccessResponse(JSON.stringify(closeOrder));
     }
 
     private async processBuySignal(client: AlpacaClient, tradeSignal: TradeSignal): Promise<APIGatewayProxyResult> {
@@ -137,7 +122,7 @@ export abstract class AlpacaService extends AlpacaOrderService {
                 trailingSellOrder,
             );
         } catch (err) {
-            return this.errorResonse(err, tradeSignal);
+            return this.errorResponse(err, tradeSignal);
         }
 
         return this.buildSuccessResponse(JSON.stringify([buyOrder]));
@@ -149,14 +134,14 @@ export abstract class AlpacaService extends AlpacaOrderService {
         maxWaitSeconds: number,
     ): Promise<Order> {
         const maxWaitMillis = this.longTradeParams.cancelPendingOrderPeriod * 1000;
-        const intervalMillis = 1000; // check status every 1 second
+        const intervalMillis = 500; // check status every 0.5 second
         let elapsedMillis = 0;
         const getOrder = async () => client.getOrder({ order_id: orderId });
 
         while (elapsedMillis < maxWaitMillis) {
             const order = await getOrder();
             if (order.status == 'filled') {
-                console.info(`Order filled:`, order);
+                console.info(`Order filled:`, order, 'Elapsed Milliseconds', elapsedMillis);
                 return order;
             }
 
@@ -166,7 +151,7 @@ export abstract class AlpacaService extends AlpacaOrderService {
         }
 
         // max wait time reached without the order being filled
-        console.info(`Order ${orderId} was not filled within ${maxWaitSeconds} seconds. Canceling...`);
+        console.warn(`Order ${orderId} was not filled within ${maxWaitSeconds} seconds. Canceling...`);
         await client.cancelOrder({ order_id: orderId });
         return await getOrder();
     }
@@ -174,27 +159,15 @@ export abstract class AlpacaService extends AlpacaOrderService {
     private async cancelOpenOrders(client: AlpacaClient, symbol: string) {
         const openOrders = await client.getOrders({ status: 'open', symbols: [symbol] });
 
-        openOrders.forEach(async (order) => {
+        for (const order of openOrders) {
             console.warn('Cancel order: ', order);
             try {
                 await client.cancelOrder({ order_id: order.id });
             } catch (err) {
                 console.error(`Failed to cancel order ${order.id}: `, err);
             }
-        });
+        }
     }
-
-    // private async submitOrder(client: AlpacaClient, placeOrder: PlaceOrder) {
-    //     console.info('Submitted order', placeOrder);
-    //     let order = await client.placeOrder(placeOrder)
-    //
-    //     setTimeout(() => {
-    //         wh (order.status != 'filled') {
-    //             let order = await client.getOrder({order_id: order.id})
-    //         }
-    //     }, this.longTradeParams.cancelPendingOrderPeriod * 1000)
-    //
-    // }
 
     private async buildSuccessResponse(data: string): Promise<APIGatewayProxyResult> {
         return this.buildResponse(200, data);
@@ -213,7 +186,7 @@ export abstract class AlpacaService extends AlpacaOrderService {
         return typeof err === 'object' && err !== null && 'message' in err;
     }
 
-    private errorResonse(err: unknown, tradeSignal: TradeSignal) {
+    private errorResponse(err: unknown, tradeSignal: TradeSignal) {
         console.error(`Failed to process trade signal for ${tradeSignal.ticker}: `, err);
 
         if (this.isAlpacaError(err) && (err.message.includes('not found') || err.message.includes('not find')))

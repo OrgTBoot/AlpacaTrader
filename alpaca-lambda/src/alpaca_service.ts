@@ -109,12 +109,12 @@ export abstract class AlpacaService extends AlpacaOrderService {
                     console.info(`Placed Long Sell TRAILING order.`, JSON.stringify(trailingSellOrder));
                 }
             }
-            console.info(`EXECUTION COMPLETED 
-                \nSIGNAL ${JSON.stringify(tradeSignal)} 
-                \nBUY ORDER ==> ${JSON.stringify(placeOrder)} 
-                \nBUY ORDER <== ${JSON.stringify(buyOrder)} 
-                \nSTOP ORDER ==> ${JSON.stringify(placeTrailingOrder)} 
-                \nSTOP ORDER <== ${JSON.stringify(trailingSellOrder)}`);
+            //Reach log statements - used in AWS log insights queries to build reports
+            console.info(`SIGNAL PROCESSED ${JSON.stringify(tradeSignal)}`);
+            console.info(`BUY ORDER PAYLOAD ${JSON.stringify(placeOrder)}`);
+            console.info(`BUY ORDER RESPONSE ${JSON.stringify(buyOrder)}`);
+            console.info(`STOP ORDER PAYLOAD ${JSON.stringify(placeTrailingOrder)}`);
+            console.info(`STOP ORDER RESPONSE ${JSON.stringify(trailingSellOrder)}`);
         } catch (err) {
             return this.errorResponse(err, tradeSignal);
         }

@@ -62,7 +62,7 @@ export abstract class AlpacaService extends AlpacaOrderService {
         try {
             await this.cancelOpenOrders(client, tradeSignal.ticker);
             const closeOrder: Order = await client.closePosition({ symbol: tradeSignal.ticker });
-            console.info('Position closed: ', closeOrder);
+            console.info('Position closed: ', JSON.stringify(closeOrder));
 
             return this.buildSuccessResponse(JSON.stringify(closeOrder));
         } catch (err) {
@@ -88,7 +88,7 @@ export abstract class AlpacaService extends AlpacaOrderService {
                 throw new Error(`Unsupported order type received: ${JSON.stringify(tradeSignal)}`);
             }
 
-            console.info('Submitting Long Buy order: ', placeOrder);
+            console.info('Submitting Long Buy order: ', JSON.stringify(placeOrder));
             buyOrder = await client.placeOrder(placeOrder);
             buyOrder = await this.awaitOrderFillOrCancel(
                 client,
@@ -104,24 +104,17 @@ export abstract class AlpacaService extends AlpacaOrderService {
                         buyOrder,
                         this.longTradeParams,
                     );
-                    console.info(`Submitted Long Sell TRAILING order.`, placeTrailingOrder);
+                    console.info(`Submitted Long Sell TRAILING order.`, JSON.stringify(placeTrailingOrder));
                     trailingSellOrder = await client.placeOrder(placeTrailingOrder);
-                    console.info(`Placed Long Sell TRAILING order.`, trailingSellOrder);
+                    console.info(`Placed Long Sell TRAILING order.`, JSON.stringify(trailingSellOrder));
                 }
             }
-            console.info(
-                'EXECUTION COMPLETED :',
-                '\nSIGNAL ',
-                tradeSignal,
-                '\nBUY ORDER ==>',
-                placeOrder,
-                '\nBUY ORDER <==',
-                buyOrder,
-                '\nSTOP ORDER ==> ',
-                placeTrailingOrder,
-                '\nSTOP ORDER <==',
-                trailingSellOrder,
-            );
+            console.info(`EXECUTION COMPLETED 
+                \nSIGNAL ${JSON.stringify(tradeSignal)} 
+                \nBUY ORDER ==> ${JSON.stringify(placeOrder)} 
+                \nBUY ORDER <== ${JSON.stringify(buyOrder)} 
+                \nSTOP ORDER ==> ${JSON.stringify(placeTrailingOrder)} 
+                \nSTOP ORDER <== ${JSON.stringify(trailingSellOrder)}`);
         } catch (err) {
             return this.errorResponse(err, tradeSignal);
         }
@@ -142,7 +135,7 @@ export abstract class AlpacaService extends AlpacaOrderService {
         while (elapsedMillis < maxWaitMillis) {
             const order = await getOrder();
             if (order.status == 'filled') {
-                console.info(`Order filled:`, order, 'Elapsed Milliseconds', elapsedMillis);
+                console.info(`Order filled:`, JSON.stringify(order), 'Elapsed Milliseconds', elapsedMillis);
                 return order;
             }
 
@@ -161,7 +154,7 @@ export abstract class AlpacaService extends AlpacaOrderService {
         const openOrders = await client.getOrders({ status: 'open', symbols: [symbol] });
 
         for (const order of openOrders) {
-            console.warn('Cancel order: ', order);
+            console.warn('Cancel order: ', JSON.stringify(order));
             try {
                 await client.cancelOrder({ order_id: order.id });
             } catch (err) {

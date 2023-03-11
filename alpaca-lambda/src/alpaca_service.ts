@@ -38,6 +38,7 @@ export abstract class AlpacaService extends AlpacaOrderService {
 
     async processEvent(client: AlpacaClient, event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
         console.info('Event: ', event.body);
+        this.validateConfigFlags();
 
         try {
             const tradeSignal = JSON.parse(event.body ?? '') as TradeSignal;
@@ -55,7 +56,7 @@ export abstract class AlpacaService extends AlpacaOrderService {
     }
 
     /**
-     * Closes open orders and positions
+     * Closes open orders and position
      * */
     private async processSellSignal(client: AlpacaClient, tradeSignal: TradeSignal): Promise<APIGatewayProxyResult> {
         try {
@@ -97,7 +98,7 @@ export abstract class AlpacaService extends AlpacaOrderService {
 
             if (!isOrderCanceled(buyOrder)) {
                 //trailing stop works on limit orders only if there are no limit brackets.
-                if (this.longTradeParams?.trailingStop?.enabled && !this.longTradeParams.limitBracket.enabled) {
+                if (this.longTradeParams?.trailingStop?.enabled) {
                     placeTrailingOrder = await super.getLongSellTrailingStopOrder(
                         client,
                         buyOrder,
@@ -196,5 +197,24 @@ export abstract class AlpacaService extends AlpacaOrderService {
             return this.buildResponse(403, JSON.stringify(err));
 
         return this.buildResponse(500, JSON.stringify(err));
+    }
+
+    /**
+     * Validate order leg flags, only one per configuration is expected to be enabled.
+     */
+    private validateConfigFlags() {
+        let count = 0;
+        if (this.longTradeParams.limitBracket?.enabled) {
+            count += 1;
+        }
+        if (this.longTradeParams.trailingStop?.enabled) {
+            count += 1;
+        }
+        if (this.longTradeParams.limit?.enabled) {
+            count += 1;
+        }
+        if (count > 1) {
+            throw new Error('Invalid config. Only one order leg flag is expected to be enabled');
+        }
     }
 }

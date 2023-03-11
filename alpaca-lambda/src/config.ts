@@ -8,7 +8,7 @@ export const config = {
         cancelPendingOrderPeriod: 5, // in seconds, fail as fast as possible. Do not change unless you have a good reason
         trailingStop: {
             enabled: true, // true, false
-            trailPercent: 2, // % value away from the highest watermark
+            trailPercent: 5, // % value away from the highest watermark
         },
         limitBracket: {
             enabled: false, // true, false - always set it to false if trailingStop.enabled=true
@@ -24,10 +24,9 @@ export const cryptoConfig = {
         orderSize: 3,
         orderType: 'limit',
         cancelPendingOrderPeriod: 5, // in seconds, fail as fast as possible. Do not change unless you have a good reason
-        limitBracket: {
+        limit: {
             enabled: true,
             stopPrice: 3,
-            takeProfit: 6,
         },
     } as TradeParams,
 };

@@ -37,7 +37,7 @@ export abstract class AlpacaOrderService {
             extended_hours: longTradeParams.extendedHours ?? false,
         };
 
-        if (longTradeParams.limitBracket.enabled) {
+        if (longTradeParams.limitBracket?.enabled) {
             const askPrice = this.getAskPrice(tradeSignal);
             const stopPrice = askPrice * (1 - longTradeParams.limitBracket.stopPrice / 100);
             const limitPrice = askPrice * (1 + longTradeParams.limitBracket.takeProfit / 100);
@@ -45,6 +45,13 @@ export abstract class AlpacaOrderService {
             placeOrder.order_class = 'bracket';
             placeOrder.stop_loss = { stop_price: this.round(stopPrice) };
             placeOrder.take_profit = { limit_price: this.round(limitPrice) };
+        }
+
+        if (longTradeParams.limit?.enabled) {
+            const askPrice = this.getAskPrice(tradeSignal);
+            const stopPrice = askPrice * (1 - longTradeParams.limit.stopPrice / 100);
+
+            placeOrder.stop_loss = { stop_price: this.round(stopPrice) };
         }
 
         return placeOrder;
@@ -60,7 +67,7 @@ export abstract class AlpacaOrderService {
             side: 'sell',
             type: 'trailing_stop',
             time_in_force: 'gtc',
-            trail_percent: longTradeParams?.trailingStop?.trailPercent ?? 2,
+            trail_percent: longTradeParams.trailingStop?.trailPercent ?? 2,
             extended_hours: longTradeParams.extendedHours ?? false,
             qty: buyOrder.qty,
         };

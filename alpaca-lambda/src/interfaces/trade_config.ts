@@ -5,7 +5,12 @@ export interface TradeParams {
     notional: boolean;
     extendedHours?: boolean;
     cancelPendingOrderPeriod: number;
-    limitBracket: {
+    limit?: {
+        enabled: boolean;
+        stopPrice: number;
+        takeProfit: number;
+    };
+    limitBracket?: {
         enabled: boolean;
         stopPrice: number;
         takeProfit: number;

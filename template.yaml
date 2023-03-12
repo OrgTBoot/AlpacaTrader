@@ -16,17 +16,17 @@ Globals:
 
 Parameters:
   AlpacaTraderPaperKey:
-    Type: String
-    Default: "{{resolve:ssm:AlpacaTraderPaperKey:1}}"
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: "AlpacaTraderPaperKey"
   AlpacaTraderPaperSecret:
-    Type: String
-    Default: "{{resolve:ssm:AlpacaTraderPaperSecret:1}}"
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: "AlpacaTraderPaperSecret"
   AlpacaTraderLiveKey:
-    Type: String
-    Default: "{{resolve:ssm:AlpacaTraderLiveKey:1}}"
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: "AlpacaTraderLiveKey"
   AlpacaTraderLiveSecret:
-    Type: String
-    Default: "{{resolve:ssm:AlpacaTraderLiveSecret:1}}"
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: "AlpacaTraderLiveSecret"
 
 Resources:
   AlpacaPaperFunction:

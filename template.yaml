@@ -14,6 +14,20 @@ Globals:
   Api:
     TracingEnabled: true
 
+Parameters:
+  AlpacaTraderPaperKey:
+    Type: String
+    Default: "{{resolve:ssm:AlpacaTraderPaperKey:1}}"
+  AlpacaTraderPaperSecret:
+    Type: String
+    Default: "{{resolve:ssm:AlpacaTraderPaperSecret:1}}"
+  AlpacaTraderLiveKey:
+    Type: String
+    Default: "{{resolve:ssm:AlpacaTraderLiveKey:1}}"
+  AlpacaTraderLiveSecret:
+    Type: String
+    Default: "{{resolve:ssm:AlpacaTraderLiveSecret:1}}"
+
 Resources:
   AlpacaPaperFunction:
     Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
@@ -29,6 +43,12 @@ Resources:
           Properties:
             Path: /paper/stock
             Method: post
+      Environment:
+        Variables:
+          AlpacaTraderPaperKey: !Ref AlpacaTraderPaperKey
+          AlpacaTraderPaperSecret: !Ref AlpacaTraderPaperSecret
+          AlpacaTraderLiveKey: !Ref AlpacaTraderLiveKey
+          AlpacaTraderLiveSecret: !Ref AlpacaTraderLiveSecret
     Metadata: # Manage esbuild properties
       BuildMethod: esbuild
       BuildProperties:
@@ -51,6 +71,12 @@ Resources:
           Properties:
             Path: /live/stock
             Method: post
+      Environment:
+        Variables:
+          AlpacaTraderPaperKey: !Ref AlpacaTraderPaperKey
+          AlpacaTraderPaperSecret: !Ref AlpacaTraderPaperSecret
+          AlpacaTraderLiveKey: !Ref AlpacaTraderLiveKey
+          AlpacaTraderLiveSecret: !Ref AlpacaTraderLiveSecret
     Metadata: # Manage esbuild properties
       BuildMethod: esbuild
       BuildProperties:
@@ -73,6 +99,12 @@ Resources:
           Properties:
             Path: /paper/crypto
             Method: post
+      Environment:
+        Variables:
+          AlpacaTraderPaperKey: !Ref AlpacaTraderPaperKey
+          AlpacaTraderPaperSecret: !Ref AlpacaTraderPaperSecret
+          AlpacaTraderLiveKey: !Ref AlpacaTraderLiveKey
+          AlpacaTraderLiveSecret: !Ref AlpacaTraderLiveSecret
     Metadata: # Manage esbuild properties
       BuildMethod: esbuild
       BuildProperties:
@@ -95,6 +127,12 @@ Resources:
           Properties:
             Path: /live/crypto
             Method: post
+      Environment:
+        Variables:
+          AlpacaTraderPaperKey: !Ref AlpacaTraderPaperKey
+          AlpacaTraderPaperSecret: !Ref AlpacaTraderPaperSecret
+          AlpacaTraderLiveKey: !Ref AlpacaTraderLiveKey
+          AlpacaTraderLiveSecret: !Ref AlpacaTraderLiveSecret
     Metadata: # Manage esbuild properties
       BuildMethod: esbuild
       BuildProperties:

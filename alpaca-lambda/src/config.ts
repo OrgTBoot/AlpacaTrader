@@ -31,17 +31,14 @@ export const cryptoConfig = {
     } as TradeParams,
 };
 
-//TODO: Check with Vlad if those should in to AWS Secrets. It costs :(
-//      $0.40 per secret per month
-//      $0.05 per 10,000 API calls
 export const credentials = {
     paper: {
-        key: 'YOUR_KEY',
-        secret: 'YOUR_SECRET',
+        key: process.env.AlpacaTraderPaperKey ?? '',
+        secret: process.env.AlpacaTraderPaperSecret ?? '',
         paper: true,
     },
     live: {
-        key: 'YOUR_KEY',
-        secret: 'YOUR_SECRET',
+        key: process.env.AlpacaTraderLiveKey ?? '',
+        secret: process.env.AlpacaTraderLiveSecret ?? '',
     },
 };

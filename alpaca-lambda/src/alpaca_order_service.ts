@@ -32,7 +32,7 @@ export abstract class AlpacaOrderService {
             side: 'buy',
             type: 'limit',
             qty: orderQty,
-            limit_price: Number(tradeSignal.price),
+            limit_price: this.round(Number(tradeSignal.price)),
             time_in_force: 'gtc',
             extended_hours: longTradeParams.extendedHours ?? false,
         };

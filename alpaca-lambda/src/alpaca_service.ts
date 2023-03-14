@@ -113,8 +113,8 @@ export abstract class AlpacaService extends AlpacaOrderService {
             console.info(`SIGNAL PROCESSED ${JSON.stringify(tradeSignal)}`);
             console.info(`BUY ORDER PAYLOAD ${JSON.stringify(placeOrder)}`);
             console.info(`BUY ORDER RESPONSE ${JSON.stringify(buyOrder)}`);
-            console.info(`STOP ORDER PAYLOAD ${JSON.stringify(placeTrailingOrder)}`);
-            console.info(`STOP ORDER RESPONSE ${JSON.stringify(trailingSellOrder)}`);
+            if (placeTrailingOrder) console.info(`STOP ORDER PAYLOAD ${JSON.stringify(placeTrailingOrder)}`);
+            if (trailingSellOrder) console.info(`STOP ORDER RESPONSE ${JSON.stringify(trailingSellOrder)}`);
         } catch (err) {
             return this.errorResponse(err, tradeSignal);
         }

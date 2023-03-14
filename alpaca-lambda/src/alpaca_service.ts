@@ -43,7 +43,7 @@ export abstract class AlpacaService extends AlpacaOrderService {
         try {
             const tradeSignal = JSON.parse(event.body ?? '') as TradeSignal;
 
-            console.info('TradeSignal: ', tradeSignal);
+            console.info('TRADE SIGNAL: ', tradeSignal);
 
             if (tradeSignal.action === 'buy') return this.processBuySignal(client, tradeSignal);
 
@@ -62,7 +62,7 @@ export abstract class AlpacaService extends AlpacaOrderService {
         try {
             await this.cancelOpenOrders(client, tradeSignal.ticker);
             const closeOrder: Order = await client.closePosition({ symbol: tradeSignal.ticker });
-            console.info('Position closed: ', JSON.stringify(closeOrder));
+            console.info('POSITION CLOSED ', JSON.stringify(closeOrder));
 
             return this.buildSuccessResponse(JSON.stringify(closeOrder));
         } catch (err) {
@@ -154,7 +154,7 @@ export abstract class AlpacaService extends AlpacaOrderService {
         const openOrders = await client.getOrders({ status: 'open', symbols: [symbol] });
 
         for (const order of openOrders) {
-            console.warn('Cancel order: ', JSON.stringify(order));
+            console.warn('CANCEL ORDER ', JSON.stringify(order));
             try {
                 await client.cancelOrder({ order_id: order.id });
             } catch (err) {

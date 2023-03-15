@@ -85,6 +85,19 @@ export abstract class AlpacaOrderService {
         return Math.round(orderMoney / this.getAskPrice(tradeSignal));
     }
 
+    protected isOrderCanceled(order: Order): boolean {
+        return order.status == 'canceled' || order.status == 'pending_cancel';
+    }
+
+    /**
+     * Check if trailing order is allowed.
+     * Note that Trailing Stop works with limit orders only if there are no limit brackets.
+     */
+    protected isTrailingOrderAllowed(buyOrder: Order, tradeSignal: TradeSignal, tradeParams: TradeParams): boolean {
+        const trailingEnabled = tradeParams.trailingStop?.enabled ?? false;
+        return !this.isOrderCanceled(buyOrder) && tradeSignal.action === 'buy' && trailingEnabled;
+    }
+
     /**
      * Gets ask price from the signal instead of Alpaca due to potential MKT data delays.
      */

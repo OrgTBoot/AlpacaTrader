@@ -78,7 +78,6 @@ export abstract class AlpacaService extends AlpacaOrderService {
 
         try {
             const orderType = this.longTradeParams.orderType as OrderType;
-            const isOrderCanceled = (order: Order) => order.status == 'canceled' || order.status == 'pending_cancel';
 
             if (orderType == 'market') {
                 placeOrder = await super.getLongBuyMarketOrder(client, tradeSignal, this.longTradeParams);
@@ -96,19 +95,14 @@ export abstract class AlpacaService extends AlpacaOrderService {
                 this.longTradeParams.cancelPendingOrderPeriod,
             );
 
-            if (!isOrderCanceled(buyOrder)) {
-                //trailing stop works on limit orders only if there are no limit brackets.
-                if (this.longTradeParams?.trailingStop?.enabled) {
-                    placeTrailingOrder = await super.getLongSellTrailingStopOrder(
-                        client,
-                        buyOrder,
-                        this.longTradeParams,
-                    );
-                    console.info(`Submitted Long Sell TRAILING order.`, JSON.stringify(placeTrailingOrder));
-                    trailingSellOrder = await client.placeOrder(placeTrailingOrder);
-                    console.info(`Placed Long Sell TRAILING order.`, JSON.stringify(trailingSellOrder));
-                }
+            if (super.isTrailingOrderAllowed(buyOrder, tradeSignal, this.longTradeParams)) {
+                placeTrailingOrder = await super.getLongSellTrailingStopOrder(client, buyOrder, this.longTradeParams);
+                console.info(`Submitted Long Sell TRAILING order.`, JSON.stringify(placeTrailingOrder));
+
+                trailingSellOrder = await client.placeOrder(placeTrailingOrder);
+                console.info(`Placed Long Sell TRAILING order.`, JSON.stringify(trailingSellOrder));
             }
+
             //Reach log statements - used in AWS log insights queries to build reports
             console.info(`SIGNAL PROCESSED ${JSON.stringify(tradeSignal)}`);
             console.info(`BUY ORDER PAYLOAD ${JSON.stringify(placeOrder)}`);

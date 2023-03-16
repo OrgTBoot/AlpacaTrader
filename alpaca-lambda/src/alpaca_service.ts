@@ -104,7 +104,7 @@ export abstract class AlpacaService extends AlpacaOrderService {
             }
 
             //Reach log statements - used in AWS log insights queries to build reports
-            console.info(`SIGNAL PROCESSED ${JSON.stringify(tradeSignal)}`);
+            console.info(`SIGNAL PROCESSED ${JSON.stringify(tradeSignal)}, ${JSON.stringify(this.longTradeParams)}`);
             console.info(`BUY ORDER PAYLOAD ${JSON.stringify(placeOrder)}`);
             console.info(`BUY ORDER RESPONSE ${JSON.stringify(buyOrder)}`);
             if (placeTrailingOrder) console.info(`STOP ORDER PAYLOAD ${JSON.stringify(placeTrailingOrder)}`);

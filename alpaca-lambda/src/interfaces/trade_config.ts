@@ -1,6 +1,7 @@
 export interface TradeParams {
     orderSize: number;
     orderType: string;
+    limitBuyBufferPercent: number;
     timeInForce: 'day' | 'gtc';
     notional: boolean;
     extendedHours?: boolean;

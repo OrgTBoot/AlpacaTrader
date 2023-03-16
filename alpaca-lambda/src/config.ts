@@ -4,11 +4,12 @@ export const config = {
     long: {
         orderSize: 3, // % from byuing power
         orderType: 'limit', // limit, market
+        limitBuyBufferPercent: 1, //percent added to the limit price
         extendedHours: false, // true | false
         cancelPendingOrderPeriod: 5, // in seconds, fail as fast as possible. Do not change unless you have a good reason
         trailingStop: {
             enabled: true, // true, false
-            trailPercent: 5, // % value away from the highest watermark
+            trailPercent: 3, // % value away from the highest watermark
         },
         limitBracket: {
             enabled: false, // true, false - always set it to false if trailingStop.enabled=true
@@ -23,7 +24,8 @@ export const cryptoConfig = {
     long: {
         orderSize: 3,
         orderType: 'limit',
-        cancelPendingOrderPeriod: 5, // in seconds, fail as fast as possible. Do not change unless you have a good reason
+        limitBuyBufferPercent: 1,
+        cancelPendingOrderPeriod: 5,
         limit: {
             enabled: true,
             stopPrice: 3,

@@ -32,7 +32,7 @@ export abstract class AlpacaOrderService {
             side: 'buy',
             type: 'limit',
             qty: orderQty,
-            limit_price: this.round(Number(tradeSignal.price)),
+            limit_price: this.getLimitBuyBufferPerice(tradeSignal, longTradeParams),
             time_in_force: 'gtc',
             extended_hours: longTradeParams.extendedHours ?? false,
         };
@@ -107,5 +107,12 @@ export abstract class AlpacaOrderService {
 
     private round(num: number): number {
         return Math.round((num + Number.EPSILON) * 100) / 100;
+    }
+
+    private getLimitBuyBufferPerice(signal: TradeSignal, params: TradeParams): number {
+        const signalPrice = Number(signal.price);
+        const buffer = (params.limitBuyBufferPercent / 100) * signalPrice;
+
+        return this.round(signalPrice + buffer);
     }
 }

@@ -59,15 +59,17 @@ export abstract class AlpacaOrderService {
 
     protected async getLongSellTrailingStopOrder(
         client: AlpacaClient,
+        signal: TradeSignal,
         buyOrder: Order,
         longTradeParams: TradeParams,
     ): Promise<PlaceOrder> {
+        const trailingPercent = Number(signal.trailingStopPercent ?? longTradeParams.trailingStop?.trailPercent ?? 3);
         return {
             symbol: buyOrder.symbol,
             side: 'sell',
             type: 'trailing_stop',
             time_in_force: 'gtc',
-            trail_percent: longTradeParams.trailingStop?.trailPercent ?? 2,
+            trail_percent: trailingPercent,
             extended_hours: longTradeParams.extendedHours ?? false,
             qty: buyOrder.qty,
         };

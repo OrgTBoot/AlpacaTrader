@@ -5,4 +5,5 @@ export interface TradeSignal {
     quantity: string;
     price: string;
     time: string;
+    trailingStopPercent: string;
 }

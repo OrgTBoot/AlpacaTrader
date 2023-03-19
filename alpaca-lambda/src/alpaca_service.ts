@@ -96,7 +96,12 @@ export abstract class AlpacaService extends AlpacaOrderService {
             );
 
             if (super.isTrailingOrderAllowed(buyOrder, tradeSignal, this.longTradeParams)) {
-                placeTrailingOrder = await super.getLongSellTrailingStopOrder(client, buyOrder, this.longTradeParams);
+                placeTrailingOrder = await super.getLongSellTrailingStopOrder(
+                    client,
+                    tradeSignal,
+                    buyOrder,
+                    this.longTradeParams,
+                );
                 console.info(`Submitted Long Sell TRAILING order.`, JSON.stringify(placeTrailingOrder));
 
                 trailingSellOrder = await client.placeOrder(placeTrailingOrder);

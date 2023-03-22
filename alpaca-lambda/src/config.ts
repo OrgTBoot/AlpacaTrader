@@ -4,7 +4,7 @@ export const config = {
     long: {
         orderSize: 3, // % from byuing power
         orderType: 'limit', // limit, market
-        limitBuyBufferPercent: 0.1, //percent added to the limit price
+        limitBuyBufferPercent: 0.5, //percent added to the limit price
         extendedHours: false, // true | false
         cancelPendingOrderPeriod: 5, // in seconds, fail as fast as possible. Do not change unless you have a good reason
         trailingStop: {
@@ -24,7 +24,7 @@ export const cryptoConfig = {
     long: {
         orderSize: 3,
         orderType: 'limit',
-        limitBuyBufferPercent: 0.1,
+        limitBuyBufferPercent: 0.5,
         cancelPendingOrderPeriod: 5,
         limit: {
             enabled: true,

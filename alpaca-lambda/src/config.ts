@@ -2,11 +2,11 @@ import { TradeParams } from './interfaces/trade_config';
 
 export const config = {
     long: {
-        orderSize: 3, // % from byuing power
+        orderSize: 5, // % from byuing power
         orderType: 'limit', // limit, market
         limitBuyBufferPercent: 0.5, //percent added to the limit price
         extendedHours: false, // true | false
-        cancelPendingOrderPeriod: 5, // in seconds, fail as fast as possible. Do not change unless you have a good reason
+        cancelPendingOrderPeriod: 10, // in seconds, fail as fast as possible. Do not change unless you have a good reason
         trailingStop: {
             enabled: true, // true, false
             trailPercent: 3, // % value away from the highest watermark, ignored if present in the signal
@@ -22,7 +22,7 @@ export const config = {
 
 export const cryptoConfig = {
     long: {
-        orderSize: 3,
+        orderSize: 10,
         orderType: 'limit',
         limitBuyBufferPercent: 0.5,
         cancelPendingOrderPeriod: 5,

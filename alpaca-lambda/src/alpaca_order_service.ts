@@ -1,9 +1,9 @@
-import { AlpacaClient, Order, PlaceOrder } from '@master-chief/alpaca';
+import { AlpacaClient, Order, PlaceOrder, Position } from '@master-chief/alpaca';
 import { TradeSignal } from './interfaces/trade_signal';
 import { TradeParams } from './interfaces/trade_config';
 
 export abstract class AlpacaOrderService {
-    protected async getLongBuyMarketOrder(
+    protected async buildLongBuyMarketOrder(
         client: AlpacaClient,
         tradeSignal: TradeSignal,
         longTradeParams: TradeParams,
@@ -20,7 +20,7 @@ export abstract class AlpacaOrderService {
         };
     }
 
-    protected async getLongBuyLimitOrder(
+    protected async buildLongBuyLimitOrder(
         client: AlpacaClient,
         tradeSignal: TradeSignal,
         longTradeParams: TradeParams,
@@ -57,21 +57,20 @@ export abstract class AlpacaOrderService {
         return placeOrder;
     }
 
-    protected async getLongSellTrailingStopOrder(
-        client: AlpacaClient,
+    protected buildLongSellTrailingStopOrder(
         signal: TradeSignal,
-        buyOrder: Order,
         longTradeParams: TradeParams,
-    ): Promise<PlaceOrder> {
+        qty: number,
+    ): PlaceOrder {
         const trailingPercent = Number(signal.trailingStopPercent ?? longTradeParams.trailingStop?.trailPercent ?? 3);
         return {
-            symbol: buyOrder.symbol,
+            symbol: signal.ticker,
             side: 'sell',
             type: 'trailing_stop',
             time_in_force: 'gtc',
             trail_percent: trailingPercent,
             extended_hours: longTradeParams.extendedHours ?? false,
-            qty: buyOrder.qty,
+            qty: qty,
         };
     }
 
@@ -87,17 +86,13 @@ export abstract class AlpacaOrderService {
         return Math.round(orderMoney / this.getAskPrice(tradeSignal));
     }
 
-    protected isOrderCanceled(order: Order): boolean {
-        return order.status == 'canceled' || order.status == 'pending_cancel';
-    }
-
     /**
      * Check if trailing order is allowed.
      * Note that Trailing Stop works with limit orders only if there are no limit brackets.
      */
-    protected isTrailingOrderAllowed(buyOrder: Order, tradeSignal: TradeSignal, tradeParams: TradeParams): boolean {
+    protected isTrailingOrderAllowed(tradeSignal: TradeSignal, tradeParams: TradeParams): boolean {
         const trailingEnabled = tradeParams.trailingStop?.enabled ?? false;
-        return !this.isOrderCanceled(buyOrder) && tradeSignal.action === 'buy' && trailingEnabled;
+        return tradeSignal.action === 'buy' && trailingEnabled;
     }
 
     /**

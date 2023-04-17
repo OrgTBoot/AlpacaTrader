@@ -1,4 +1,4 @@
-import { AlpacaClient, Order, PlaceOrder } from '@master-chief/alpaca';
+import { AlpacaClient, Order, PlaceOrder, Position } from '@master-chief/alpaca';
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { credentials } from './config';
 import { TradeSignal } from './interfaces/trade_signal';
@@ -9,12 +9,12 @@ import { AlpacaClientExtention } from './alpaca_client_extention';
 import { AlpacaOrderService } from './alpaca_order_service';
 
 export abstract class AlpacaService extends AlpacaOrderService {
-    private paperClient: AlpacaClientExtention;
-    private liveClient: AlpacaClientExtention;
-    private longTradeParams: TradeParams;
+    private readonly paperClient: AlpacaClientExtention;
+    private readonly liveClient: AlpacaClientExtention;
+    private readonly longTradeParams: TradeParams;
     private shortTradeParams: TradeParams;
 
-    constructor(tradeConfig: TradeConfig) {
+    protected constructor(tradeConfig: TradeConfig) {
         super();
         this.paperClient = new AlpacaClientExtention({
             credentials: credentials.paper,
@@ -73,16 +73,14 @@ export abstract class AlpacaService extends AlpacaOrderService {
     private async processBuySignal(client: AlpacaClient, tradeSignal: TradeSignal): Promise<APIGatewayProxyResult> {
         let placeOrder: PlaceOrder;
         let buyOrder: Order;
-        let trailingSellOrder: Order | undefined = undefined;
-        let placeTrailingOrder: PlaceOrder | undefined = undefined;
 
         try {
             const orderType = this.longTradeParams.orderType as OrderType;
 
             if (orderType == 'market') {
-                placeOrder = await super.getLongBuyMarketOrder(client, tradeSignal, this.longTradeParams);
+                placeOrder = await super.buildLongBuyMarketOrder(client, tradeSignal, this.longTradeParams);
             } else if (orderType == 'limit') {
-                placeOrder = await super.getLongBuyLimitOrder(client, tradeSignal, this.longTradeParams);
+                placeOrder = await super.buildLongBuyLimitOrder(client, tradeSignal, this.longTradeParams);
             } else {
                 throw new Error(`Unsupported order type received: ${JSON.stringify(tradeSignal)}`);
             }
@@ -95,30 +93,38 @@ export abstract class AlpacaService extends AlpacaOrderService {
                 this.longTradeParams.cancelPendingOrderPeriod,
             );
 
-            if (super.isTrailingOrderAllowed(buyOrder, tradeSignal, this.longTradeParams)) {
-                placeTrailingOrder = await super.getLongSellTrailingStopOrder(
-                    client,
-                    tradeSignal,
-                    buyOrder,
-                    this.longTradeParams,
-                );
-                console.info(`Submitted Long Sell TRAILING order.`, JSON.stringify(placeTrailingOrder));
-
-                trailingSellOrder = await client.placeOrder(placeTrailingOrder);
-                console.info(`Placed Long Sell TRAILING order.`, JSON.stringify(trailingSellOrder));
-            }
-
             //Reach log statements - used in AWS log insights queries to build reports
             console.info(`SIGNAL PROCESSED ${JSON.stringify(tradeSignal)}, ${JSON.stringify(this.longTradeParams)}`);
             console.info(`BUY ORDER PAYLOAD ${JSON.stringify(placeOrder)}`);
             console.info(`BUY ORDER RESPONSE ${JSON.stringify(buyOrder)}`);
-            if (placeTrailingOrder) console.info(`STOP ORDER PAYLOAD ${JSON.stringify(placeTrailingOrder)}`);
-            if (trailingSellOrder) console.info(`STOP ORDER RESPONSE ${JSON.stringify(trailingSellOrder)}`);
+
+            await this.processTrailingStopSellSignal(client, tradeSignal);
         } catch (err) {
             return this.errorResponse(err, tradeSignal);
         }
 
         return this.buildSuccessResponse(JSON.stringify([buyOrder]));
+    }
+
+    private async processTrailingStopSellSignal(
+        client: AlpacaClient,
+        signal: TradeSignal,
+    ): Promise<APIGatewayProxyResult> {
+        if (super.isTrailingOrderAllowed(signal, this.longTradeParams)) {
+            const position = await client.getPosition({ symbol: signal.ticker });
+
+            if (position) {
+                await this.cancelOpenOrders(client, signal.ticker);
+                const order = super.buildLongSellTrailingStopOrder(signal, this.longTradeParams, position.qty);
+                console.info(`STOP ORDER PAYLOAD ${JSON.stringify(order)}`);
+
+                const trailingSellOrder = await client.placeOrder(order);
+                console.info(`STOP ORDER RESPONSE ${JSON.stringify(trailingSellOrder)}`);
+
+                return this.buildSuccessResponse(JSON.stringify([trailingSellOrder]));
+            }
+        }
+        return this.buildResponse(100, 'Trailing Stop ignored');
     }
 
     private async awaitOrderFillOrCancel(
